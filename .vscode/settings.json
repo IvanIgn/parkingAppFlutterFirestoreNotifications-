@@ -1,0 +1,8 @@
+{
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.project.sourcePaths": [
+        "parkingapp_user"
+    ],
+    "cmake.sourceDirectory": "C:/Users/tomas/Desktop/Flutter_projects/parkingAppFlutterFirestore/parkingapp_admin/linux"
+}

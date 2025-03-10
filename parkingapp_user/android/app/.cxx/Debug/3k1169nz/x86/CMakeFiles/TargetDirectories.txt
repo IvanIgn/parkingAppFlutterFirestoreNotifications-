@@ -1,0 +1,2 @@
+C:/Users/tomas/Desktop/Flutter_projects/parkingAppFlutterFirestore/parkingapp_user/android/app/.cxx/Debug/3k1169nz/x86/CMakeFiles/edit_cache.dir
+C:/Users/tomas/Desktop/Flutter_projects/parkingAppFlutterFirestore/parkingapp_user/android/app/.cxx/Debug/3k1169nz/x86/CMakeFiles/rebuild_cache.dir

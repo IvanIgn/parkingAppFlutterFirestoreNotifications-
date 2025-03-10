@@ -1,0 +1,11 @@
+admin app:
+
+Platform  Firebase App Id
+web       1:26248141827:web:56a2c14bd0ea90808a8236
+windows   1:26248141827:web:24660efd88162ce08a8236
+
+user app:
+
+Platform  Firebase App Id
+web       1:26248141827:web:24660efd88162ce08a8236
+android   1:26248141827:android:7dbe6339d6fad9968a8236
