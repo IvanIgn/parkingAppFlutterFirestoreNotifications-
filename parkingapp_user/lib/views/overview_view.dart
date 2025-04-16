@@ -127,11 +127,11 @@ class _OverviewViewState extends State<OverviewView> {
                         if (parkingInstance.vehicle!.owner != null) ...[
                           buildKeyValue('Ägarens ID',
                               parkingInstance.vehicle!.owner!.authId),
-                          buildKeyValue('Ägarens namn',
+                          buildKeyValue('Ägarens Namn',
                               parkingInstance.vehicle!.owner!.name),
                           buildKeyValue('Ägarens Email',
                               parkingInstance.vehicle!.owner!.email),
-                          buildKeyValue('Ägarens personnummer',
+                          buildKeyValue('Ägarens Personnummer',
                               parkingInstance.vehicle!.owner!.personNumber),
                         ] else
                           const Text('Ägarens informaion är inte tillgänglig.'),

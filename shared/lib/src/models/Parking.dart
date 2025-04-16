@@ -128,6 +128,22 @@ class Parking extends Equatable {
     };
   }
 
+  Parking copyWith({
+    String? id,
+    Vehicle? vehicle,
+    ParkingSpace? parkingSpace,
+    DateTime? startTime,
+    DateTime? endTime,
+  }) {
+    return Parking(
+      id: id ?? this.id,
+      vehicle: vehicle ?? this.vehicle,
+      parkingSpace: parkingSpace ?? this.parkingSpace,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+    );
+  }
+
   @override
   List<Object?> get props => [id, vehicle, parkingSpace, startTime, endTime];
 }

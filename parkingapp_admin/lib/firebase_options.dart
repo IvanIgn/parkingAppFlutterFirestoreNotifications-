@@ -50,22 +50,23 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBnrh3-68p0Li4kbyVKaB9xQexW_HHe7jE',
-    appId: '1:26248141827:web:56a2c14bd0ea90808a8236',
-    messagingSenderId: '26248141827',
-    projectId: 'parkingappflutterfirestore',
-    authDomain: 'parkingappflutterfirestore.firebaseapp.com',
-    storageBucket: 'parkingappflutterfirestore.firebasestorage.app',
-    measurementId: 'G-7F56E3YV6N',
+    apiKey: 'AIzaSyB8a8Pctsi9cCg__3KnNQqDnPqH0yV5RSU',
+    appId: '1:676312531060:web:2f9e5c3500e891894fd121',
+    messagingSenderId: '676312531060',
+    projectId: 'parkingappflutternotifications',
+    authDomain: 'parkingappflutternotifications.firebaseapp.com',
+    storageBucket: 'parkingappflutternotifications.firebasestorage.app',
+    measurementId: 'G-1JLQHZFWYL',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBnrh3-68p0Li4kbyVKaB9xQexW_HHe7jE',
-    appId: '1:26248141827:web:24660efd88162ce08a8236',
-    messagingSenderId: '26248141827',
-    projectId: 'parkingappflutterfirestore',
-    authDomain: 'parkingappflutterfirestore.firebaseapp.com',
-    storageBucket: 'parkingappflutterfirestore.firebasestorage.app',
-    measurementId: 'G-2ZQLQZGDMT',
+    apiKey: 'AIzaSyB8a8Pctsi9cCg__3KnNQqDnPqH0yV5RSU',
+    appId: '1:676312531060:web:151a389363ed9b194fd121',
+    messagingSenderId: '676312531060',
+    projectId: 'parkingappflutternotifications',
+    authDomain: 'parkingappflutternotifications.firebaseapp.com',
+    storageBucket: 'parkingappflutternotifications.firebasestorage.app',
+    measurementId: 'G-JKBEZK2HRF',
   );
+
 }

@@ -1,12 +1,19 @@
 import 'package:firebase_repositories/firebase_repositories.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:parkingapp_user/repository/notification_repository.dart';
 import 'package:shared/shared.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:parkingapp_user/blocs/parking_space/parking_space_bloc.dart'; // Import your Bloc files
+import 'package:parkingapp_user/blocs/parking_space/parking_space_bloc.dart';
 
-class ParkingSpaceSelectionScreen extends StatelessWidget {
-  const ParkingSpaceSelectionScreen({super.key});
+class ParkingSpaceSelectionView extends StatelessWidget {
+  final NotificationRepository notificationRepository;
+
+  const ParkingSpaceSelectionView({
+    super.key,
+    required this.notificationRepository,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -16,36 +23,62 @@ class ParkingSpaceSelectionScreen extends StatelessWidget {
         parkingRepository: ParkingRepository.instance,
         personRepository: PersonRepository.instance,
         vehicleRepository: VehicleRepository.instance,
-      )..add(LoadParkingSpaces()), // Adjusted event name
+        notificationRepository: notificationRepository,
+      )..add(const LoadParkingSpaces()),
       child: Scaffold(
         appBar: AppBar(
           title: const Text("Välj en Parkeringsplats"),
         ),
-        body: BlocConsumer<ParkingSpaceBloc, ParkingSpaceState>(
+        body: BlocListener<ParkingSpaceBloc, ParkingSpaceState>(
           listener: (context, state) {
-            if (state is ParkingSpaceError) {
+            if (state is ParkingEnded) {
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('Parkeringen avslutad'),
+                  content: Text(
+                    'Parkeringstid: ${state.totalMinutes} minuter\n'
+                    'Total kostnad: ${state.totalPrice.toStringAsFixed(2)} SEK',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text("OK"),
+                    ),
+                  ],
+                ),
+              ).then((_) {
+                // ignore: use_build_context_synchronously
+                context.read<ParkingSpaceBloc>().add(const LoadParkingSpaces());
+              });
+            } else if (state is ParkingSpaceError) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Fel: ${state.message}')),
               );
             }
           },
-          builder: (context, state) {
-            if (state is ParkingSpaceLoading) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state is ParkingSpaceLoaded) {
-              return _ParkingSpaceListView(
-                parkingSpaces: state.parkingSpaces,
-                selectedSpace: state.selectedParkingSpace,
-                isParkingActive: state.isParkingActive,
+          child: BlocConsumer<ParkingSpaceBloc, ParkingSpaceState>(
+            listener: (context, state) {
+              // Additional listeners can be added here
+            },
+            builder: (context, state) {
+              if (state is ParkingSpaceLoading) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (state is ParkingSpaceLoaded) {
+                return _ParkingSpaceListView(
+                  parkingSpaces: state.parkingSpaces,
+                  selectedSpace: state.selectedParkingSpace,
+                  isParkingActive: state.isParkingActive,
+                );
+              }
+              return const Center(
+                child: Text(
+                  'Inga parkeringsplatser tillgängliga.',
+                  style: TextStyle(fontSize: 16),
+                ),
               );
-            }
-            return const Center(
-              child: Text(
-                'Inga parkeringsplatser tillgängliga.',
-                style: TextStyle(fontSize: 16),
-              ),
-            );
-          },
+            },
+          ),
         ),
       ),
     );
@@ -79,7 +112,6 @@ class _ParkingSpaceListView extends StatelessWidget {
             itemBuilder: (context, index) {
               final parkingSpace = parkingSpaces[index];
               final isSelected = selectedSpace?.id == parkingSpace.id;
-
               return ListTile(
                 title: Text(
                   'Parkeringsplats ID: ${parkingSpace.id}',
@@ -133,19 +165,14 @@ class _SelectedSpaceInfo extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16.0),
       color: isParkingActive
-          // ignore: deprecated_member_use
+          //ignore: deprecated_member_use
           ? Colors.red.withOpacity(0.2)
           // ignore: deprecated_member_use
           : Colors.green.withOpacity(0.2),
       child: Text(
         isParkingActive
-            ? 'Du startade parkeringen på:\n'
-                'Parkeringsplats ID: ${selectedSpace.id}\n'
-                'Address: ${selectedSpace.address}\n'
-                'Pris per timme: ${selectedSpace.pricePerHour} SEK'
-            : 'Vald parkeringsplats:\n'
-                'ID: ${selectedSpace.id}\n'
-                'Address: ${selectedSpace.address}',
+            ? 'Du startade parkeringen på:\nParkeringsplats ID: ${selectedSpace.id}\nAddress: ${selectedSpace.address}\nPris per timme: ${selectedSpace.pricePerHour} SEK'
+            : 'Vald parkeringsplats:\nID: ${selectedSpace.id}\nAddress: ${selectedSpace.address}',
         textAlign: TextAlign.center,
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
@@ -169,7 +196,6 @@ class _SelectButton extends StatelessWidget {
     return ElevatedButton(
       onPressed: () async {
         if (isParkingActive && !isSelected) {
-          // Parking is active, display a Snackbar
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Stoppa parkeringen först"),
@@ -178,12 +204,10 @@ class _SelectButton extends StatelessWidget {
           );
           return;
         }
-
-        // Check for selected vehicle
         final prefs = await SharedPreferences.getInstance();
         final selectedVehicle = prefs.getString('selectedVehicle');
         if (selectedVehicle == null) {
-          // No vehicle selected, display a Snackbar
+          // ignore: use_build_context_synchronously
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Välj först ett fordon "),
@@ -192,8 +216,7 @@ class _SelectButton extends StatelessWidget {
           );
           return;
         }
-
-        // Dispatch the appropriate event
+        // ignore: use_build_context_synchronously
         final bloc = context.read<ParkingSpaceBloc>();
         if (isSelected) {
           bloc.add(DeselectParkingSpace());
@@ -209,69 +232,216 @@ class _SelectButton extends StatelessWidget {
   }
 }
 
-// class _ToggleParkingButton extends StatelessWidget {
-//   final bool isParkingActive;
-
-//   const _ToggleParkingButton({required this.isParkingActive});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return ElevatedButton(
-//       onPressed: () {
-//         final bloc = context.read<ParkingSpaceBloc>();
-//         if (isParkingActive) {
-//           bloc.add(StopParking());
-//         } else {
-//           bloc.add(StartParking());
-//         }
-//       },
-//       style: ElevatedButton.styleFrom(
-//         backgroundColor: isParkingActive ? Colors.red : Colors.orange,
-//       ),
-//       child: Text(isParkingActive ? "Stoppa Parkering" : "Starta Parkering"),
-//     );
-//   }
-// }
-
 class _ToggleParkingButton extends StatelessWidget {
   final bool isParkingActive;
 
   const _ToggleParkingButton({required this.isParkingActive});
 
+  Future<int?> _showParkingTimeDialog(BuildContext context) async {
+    final TextEditingController controller = TextEditingController();
+    return showDialog<int>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Ange parkeringstid'),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Parkeringstid i minuter',
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Avbryt'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Starta'),
+              onPressed: () {
+                final input = controller.text;
+                if (input.isNotEmpty) {
+                  final minutes = int.tryParse(input);
+                  if (minutes != null && minutes > 0) {
+                    Navigator.of(dialogContext).pop(minutes);
+                    return;
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: () async {
+        final bloc = context.read<ParkingSpaceBloc>();
         if (!isParkingActive) {
-          // Check for selected vehicle before starting parking
           final prefs = await SharedPreferences.getInstance();
           final selectedVehicle = prefs.getString('selectedVehicle');
-
           if (selectedVehicle == null) {
-            // No vehicle selected, show Snackbar error
+            //ignore: use_build_context_synchronously
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content:
                     Text("Välj först ett fordon innan du startar parkeringen."),
-                duration: Duration(seconds: 2),
+                duration: Duration(seconds: 1),
               ),
             );
             return;
           }
-        }
-
-        // Dispatch the appropriate event
-        final bloc = context.read<ParkingSpaceBloc>();
-        if (isParkingActive) {
-          bloc.add(StopParking());
+          //ignore: use_build_context_synchronously
+          final parkingTime = await _showParkingTimeDialog(context);
+          if (parkingTime != null) {
+            bloc.add(StartParking(parkingDurationInMinutes: parkingTime));
+          }
         } else {
-          bloc.add(StartParking());
+          bloc.add(StopParking());
+          context.read<ParkingSpaceBloc>().add(const LoadParkingSpaces());
         }
       },
       style: ElevatedButton.styleFrom(
         backgroundColor: isParkingActive ? Colors.red : Colors.orange,
       ),
       child: Text(isParkingActive ? "Stoppa Parkering" : "Starta Parkering"),
+    );
+  }
+
+  void _showDurationDialog(BuildContext context) {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Parkeringstid'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            validator: (value) {
+              if (value == null || value.isEmpty) return 'Ange antal minuter';
+              final minutes = int.tryParse(value);
+              if (minutes == null || minutes < 15) return 'Minst 15 minuter';
+              return null;
+            },
+            decoration: const InputDecoration(
+              labelText: 'Antal minuter',
+              suffixText: 'minuter',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Avbryt'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                final minutes = int.parse(controller.text);
+                context.read<ParkingSpaceBloc>().add(
+                      StartParking(parkingDurationInMinutes: minutes),
+                    );
+                // Dispatch a refresh event after a short delay to allow state update.
+                Future.delayed(const Duration(milliseconds: 200), () {
+                  // ignore: use_build_context_synchronously
+                  context
+                      .read<ParkingSpaceBloc>()
+                      .add(const LoadParkingSpaces(forceRefresh: true));
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Parkering startad för $minutes minuter'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Starta'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showExtendDialog(BuildContext context) {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => Form(
+        key: formKey,
+        child: AlertDialog(
+          title: const Text('Förläng Parkeringstid'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Ange antal minuter att förlänga (15-240):'),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                maxLength: 3,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Ange antal minuter';
+                  }
+                  final minutes = int.tryParse(value);
+                  if (minutes == null || minutes < 15 || minutes > 240) {
+                    return 'Minst 15, max 240 minuter';
+                  }
+                  return null;
+                },
+                decoration: const InputDecoration(
+                  hintText: '30',
+                  suffixText: 'minuter',
+                  border: OutlineInputBorder(),
+                  counterText: '',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Avbryt'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  final minutes = int.parse(controller.text);
+                  context
+                      .read<ParkingSpaceBloc>()
+                      .add(ExtendParking(additionalMinutes: minutes));
+                  context
+                      .read<ParkingSpaceBloc>()
+                      .add(const LoadParkingSpaces());
+                  Navigator.pop(context);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[700],
+              ),
+              child:
+                  const Text('Förläng', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

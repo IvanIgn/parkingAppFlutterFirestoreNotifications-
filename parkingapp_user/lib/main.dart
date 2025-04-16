@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,12 +17,41 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:parkingapp_user/firebase_options.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:parkingapp_user/repository/notification_repository.dart';
+import 'package:parkingapp_user/blocs/notifications/notification_bloc.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final ValueNotifier<bool> isDarkModeNotifier = ValueNotifier(false);
 
-void main() async {
-  // Ensure Flutter bindings are initialized before running any code
+Future<void> _configureLocalTimeZone() async {
+  if (kIsWeb || Platform.isLinux) return;
+  tz.initializeTimeZones();
+  if (Platform.isWindows) return;
+  final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+  tz.setLocalLocation(tz.getLocation(timeZoneName));
+}
+
+Future<void> initializeNotifications(
+    FlutterLocalNotificationsPlugin plugin) async {
+  var initializationSettingsAndroid =
+      const AndroidInitializationSettings('@mipmap/ic_launcher');
+  var initializationSettingsIOS = const DarwinInitializationSettings();
+  var initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+    iOS: initializationSettingsIOS,
+  );
+  await plugin.initialize(initializationSettings);
+}
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize NotificationRepository before runApp
+  final notificationRepository = await NotificationRepository.instance;
 
   // Initialize Firebase
   try {
@@ -30,6 +61,7 @@ void main() async {
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
   }
+
   // Initialize hydrated storage
   final storage = await HydratedStorage.build(
     storageDirectory: kIsWeb
@@ -37,32 +69,48 @@ void main() async {
         : await getApplicationDocumentsDirectory(),
   );
 
-  // Initialize SharedPreferences before `runApp()`
+  // Initialize SharedPreferences
   final prefs = await SharedPreferences.getInstance();
   isDarkModeNotifier.value = prefs.getBool('isDarkMode') ?? false;
 
-  // Wrap the app with HydratedBlocOverrides in the same zone
-  // HydratedBlocOverrides.runZoned(
-  //   () {
-  //     runApp(ParkingApp(prefs: prefs));
-  //   },
-  //   storage: storage,
-  // );
+  // Configure time zone
+  await _configureLocalTimeZone();
+
+  // Initialize FlutterLocalNotificationsPlugin (used internally by NotificationRepository)
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+  await initializeNotifications(flutterLocalNotificationsPlugin);
 
   HydratedBloc.storage = storage;
 
-  runApp(ParkingApp(prefs: prefs));
+  runApp(
+    // Wrap your app in a RepositoryProvider for NotificationRepository
+    RepositoryProvider<NotificationRepository>.value(
+      value: notificationRepository,
+      child: ParkingApp(
+          prefs: prefs, notificationRepository: notificationRepository),
+    ),
+  );
 }
 
 class ParkingApp extends StatelessWidget {
   final SharedPreferences prefs;
+  final NotificationRepository notificationRepository;
 
-  const ParkingApp({super.key, required this.prefs});
+  const ParkingApp({
+    super.key,
+    required this.prefs,
+    required this.notificationRepository,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        // Provide NotificationBloc first so others can use it.
+        BlocProvider<NotificationBloc>(
+          create: (context) => NotificationBloc(notificationRepository),
+        ),
         BlocProvider<PersonBloc>(
           create: (context) => PersonBloc(repository: PersonRepository.instance)
             ..add(LoadPersons()),
@@ -75,6 +123,8 @@ class ParkingApp extends StatelessWidget {
           create: (context) => ParkingBloc(
             parkingRepository: ParkingRepository.instance,
             sharedPreferences: prefs,
+            // Use the existing NotificationBloc from the widget tree:
+            notificationBloc: context.read<NotificationBloc>(),
           )..add(LoadActiveParkings()),
         ),
         BlocProvider<ParkingSpaceBloc>(
@@ -83,7 +133,8 @@ class ParkingApp extends StatelessWidget {
             parkingRepository: ParkingRepository.instance,
             personRepository: PersonRepository.instance,
             vehicleRepository: VehicleRepository.instance,
-          )..add(LoadParkingSpaces()),
+            notificationRepository: notificationRepository,
+          )..add(const LoadParkingSpaces()),
         ),
         BlocProvider<RegistrationBloc>(
           create: (context) =>
@@ -115,9 +166,7 @@ class MaterialAppWidget extends StatelessWidget {
             primarySwatch: Colors.blue,
             brightness: Brightness.light,
           ),
-          darkTheme: ThemeData(
-            brightness: Brightness.dark,
-          ),
+          darkTheme: ThemeData(brightness: Brightness.dark),
           themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
           home: BlocBuilder<AuthBloc, AuthState>(
             builder: (context, authState) {

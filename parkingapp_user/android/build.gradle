@@ -1,11 +1,17 @@
 buildscript {
+    ext {
+        compileSdkVersion = 35
+        minSdkVersion = 23
+        targetSdkVersion = 35
+        kotlin_version = '1.9.0' // or whatever you use
+    }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.0.2' // Update Gradle version as needed
-        classpath 'com.google.gms:google-services:4.3.15'
+        classpath 'com.android.tools.build:gradle:7.0.2' // Update Gradle version as needed  //classpath 'com.android.tools.build:gradle:8.2.2'
+        classpath 'com.google.gms:google-services:4.4.0' // classpath 'com.google.gms:google-services:4.4.1'
     }
 }
 

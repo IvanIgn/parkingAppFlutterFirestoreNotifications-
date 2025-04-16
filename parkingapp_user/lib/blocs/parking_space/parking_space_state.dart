@@ -1,3 +1,4 @@
+// parking_space_state.dart
 part of 'parking_space_bloc.dart';
 
 abstract class ParkingSpaceState extends Equatable {
@@ -7,26 +8,9 @@ abstract class ParkingSpaceState extends Equatable {
   List<Object?> get props => [];
 }
 
-// Initial state when no parking data is available
 class ParkingSpaceInitial extends ParkingSpaceState {}
 
 class ParkingSpaceLoading extends ParkingSpaceState {}
-
-class ParkingSpaceLoaded extends ParkingSpaceState {
-  final List<ParkingSpace> parkingSpaces;
-  final ParkingSpace? selectedParkingSpace;
-  final bool isParkingActive;
-
-  const ParkingSpaceLoaded({
-    required this.parkingSpaces,
-    this.selectedParkingSpace,
-    this.isParkingActive = false,
-  });
-
-  @override
-  List<Object?> get props =>
-      [parkingSpaces, selectedParkingSpace, isParkingActive];
-}
 
 class ParkingSpaceError extends ParkingSpaceState {
   final String message;
@@ -37,56 +21,81 @@ class ParkingSpaceError extends ParkingSpaceState {
   List<Object?> get props => [message];
 }
 
-// State indicating that parking spaces have been successfully loaded
-// class ParkingSpacesLoaded extends ParkingSpaceState {
-//   final List<ParkingSpace> parkingSpaces;
-//   final ParkingSpace? selectedParkingSpace; // Include selectedParkingSpace here
-//   final bool? isActive; // Add isActive to the loaded state
+class ParkingEnded extends ParkingSpaceState {
+  final int totalMinutes;
+  final double totalPrice;
+  final Parking parking;
 
-//   ParkingSpacesLoaded({
-//     required this.parkingSpaces,
-//     this.selectedParkingSpace,
-//     this.isActive, // Carry the active status when spaces are loaded
-//   });
-// }
+  const ParkingEnded({
+    required this.totalMinutes,
+    required this.totalPrice,
+    required this.parking,
+  });
 
-// // State indicating an error occurred while loading parking spaces
-// class ParkingSpacesError extends ParkingSpaceState {
-//   final String message;
+  @override
+  List<Object?> get props => [totalMinutes, totalPrice, parking];
+}
 
-//   ParkingSpacesError({required this.message});
-// }
+class ParkingExtensionSuccess extends ParkingSpaceState {
+  final int extendedMinutes;
 
-// // State indicating a parking space has been selected
-// class ParkingSpaceSelected extends ParkingSpaceState {
-//   final ParkingSpace parkingSpace;
+  const ParkingExtensionSuccess(this.extendedMinutes);
 
-//   ParkingSpaceSelected({required this.parkingSpace});
-// }
+  @override
+  List<Object?> get props => [extendedMinutes];
+}
 
-// // State indicating the selected parking space has been cleared
-// class ParkingSpaceSelectionCleared extends ParkingSpaceState {}
+class ParkingSpaceLoaded extends ParkingSpaceState {
+  final List<ParkingSpace> parkingSpaces; // Define parkingSpaces
+  final ParkingSpace? selectedParkingSpace; // Add selectedParkingSpace
+  final bool isParkingActive; // Add isParkingActive
+  final bool refreshTrigger;
+  final DateTime? endTime; // Add endTime property
+  final int? updateTime;
 
-// // State indicating that parking has started
-// class ParkingSpaceStarted extends ParkingSpaceState {
-//   final ParkingSpace
-//       selectedParkingSpace; // Selected parking space when parking starts
-//   final List<ParkingSpace> parkingSpaces; // List of all parking spaces
+  // Add refreshTrigger to props
+  @override
+  List<Object?> get props => [
+        parkingSpaces,
+        selectedParkingSpace,
+        isParkingActive,
+        endTime,
+        refreshTrigger,
+        updateTime,
+      ];
 
-//   ParkingSpaceStarted({
-//     required this.selectedParkingSpace,
-//     required this.parkingSpaces,
-//   });
-// }
+  const ParkingSpaceLoaded({
+    required this.isParkingActive,
+    required this.parkingSpaces,
+    this.selectedParkingSpace,
+    this.refreshTrigger = false,
+    this.endTime, // Initialize endTime
+    this.updateTime,
+  });
 
-// // State indicating that parking has stopped
-// class ParkingSpaceStopped extends ParkingSpaceState {
-//   ParkingSpaceStopped();
-// }
+  ParkingSpaceLoaded copyWith({
+    List<ParkingSpace>? parkingSpaces,
+    ParkingSpace? selectedParkingSpace,
+    bool? isParkingActive,
+    DateTime? endTime,
+    bool? refreshTrigger,
+    int? updateTime,
+  }) {
+    return ParkingSpaceLoaded(
+      isParkingActive: isParkingActive ?? this.isParkingActive,
+      parkingSpaces: parkingSpaces ?? this.parkingSpaces,
+      selectedParkingSpace: selectedParkingSpace ?? this.selectedParkingSpace,
+      endTime: endTime ?? this.endTime,
+      refreshTrigger: refreshTrigger ?? this.refreshTrigger,
+      updateTime: updateTime ?? this.updateTime,
+    );
+  }
+}
 
-// // State indicating the parking session has been toggled (started or stopped)
-// class ParkingStateToggled extends ParkingSpaceState {
-//   final bool isActive;
+class ParkingSpaceExtendDialog extends ParkingSpaceState {
+  // You can include extra information if needed.
+  const ParkingSpaceExtendDialog();
 
-//   ParkingStateToggled({required this.isActive});
-//}
+  @override
+  List<Object?> get props => [];
+}

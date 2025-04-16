@@ -5,6 +5,7 @@ import 'package:firebase_repositories/firebase_repositories.dart';
 import 'package:equatable/equatable.dart';
 import 'package:clock/clock.dart';
 import 'dart:convert';
+import 'package:parkingapp_user/blocs/notifications/notification_bloc.dart'; // Adjust import as needed
 
 part 'parking_event.dart';
 part 'parking_state.dart';
@@ -12,12 +13,16 @@ part 'parking_state.dart';
 class ParkingBloc extends Bloc<ParkingEvent, ParkingState> {
   final ParkingRepository parkingRepository;
   final SharedPreferences sharedPreferences;
+  final NotificationBloc notificationBloc; // New dependency
+
   List<Parking> _parkingList = [];
   final List<Person> _personList = [];
 
-  ParkingBloc(
-      {required this.parkingRepository, required this.sharedPreferences})
-      : super(ParkingsInitial()) {
+  ParkingBloc({
+    required this.parkingRepository,
+    required this.sharedPreferences,
+    required this.notificationBloc, // Injected here
+  }) : super(ParkingsInitial()) {
     on<LoadParkings>((event, emit) async {
       await onLoadParkings(emit);
     });
@@ -50,13 +55,11 @@ class ParkingBloc extends Bloc<ParkingEvent, ParkingState> {
   Future<void> onLoadActiveParkings(Emitter<ParkingState> emit) async {
     emit(ParkingsLoading());
     try {
-      // Retrieve logged-in user's ID from SharedPreferences
+      // Retrieve logged-in person's info from SharedPreferences
       final loggedInPersonJson = sharedPreferences.getString('loggedInPerson');
-
       if (loggedInPersonJson == null) {
         throw Exception("Failed to load active parkings");
       }
-
       final loggedInPersonMap =
           json.decode(loggedInPersonJson) as Map<String, dynamic>;
       final loggedInUserEmail = loggedInPersonMap['email'];
@@ -64,14 +67,12 @@ class ParkingBloc extends Bloc<ParkingEvent, ParkingState> {
       // Fetch all parkings from repository
       _parkingList = await parkingRepository.getAllParkings();
 
-      // Filter only active parkings added by the logged-in user
+      // Filter only active parkings for the logged-in user
       List<Parking> activeParkings = _parkingList
           .where(
             (parking) =>
-                parking.vehicle?.owner?.email ==
-                    loggedInUserEmail && // Filter by logged-in user
-                parking.endTime.isAfter(
-                    DateTime.now()), // Check if parking is still active
+                parking.vehicle?.owner?.email == loggedInUserEmail &&
+                parking.endTime.isAfter(DateTime.now()),
           )
           .toList();
 
@@ -87,7 +88,7 @@ class ParkingBloc extends Bloc<ParkingEvent, ParkingState> {
     try {
       final parkings =
           await parkingRepository.getParkingByUserEmail(event.userEmail);
-      emit(ParkingsLoaded(parkings: parkings)); // Emit user-specific vehicles
+      emit(ParkingsLoaded(parkings: parkings));
     } catch (e) {
       emit(ParkingsError(message: 'Failed to load parkings: $e'));
     }
@@ -107,62 +108,76 @@ class ParkingBloc extends Bloc<ParkingEvent, ParkingState> {
     emit(ParkingsLoading());
     try {
       _parkingList = await parkingRepository.getAllParkings();
-
       List<Parking> nonActiveParkings = _parkingList
           .where((parking) => parking.endTime.isBefore(clock.now()))
           .toList();
-
       emit(ParkingsLoaded(parkings: nonActiveParkings));
     } catch (e) {
       emit(ParkingsError(message: e.toString()));
     }
   }
 
-  onCreateParking(Emitter<ParkingState> emit, Parking parking) async {
-    emit(ParkingsLoading()); // Emit loading state
+  Future<void> onCreateParking(
+      Emitter<ParkingState> emit, Parking parking) async {
+    emit(ParkingsLoading());
     try {
-      // emit(ParkingsLoading());
       await parkingRepository.createParking(parking);
 
-      // Fetch all parkings from the repository
-      final allParkings = await parkingRepository.getAllParkings();
+      // Dispatch event to schedule notification 10 minutes before parking ends.
+      notificationBloc.add(
+        ScheduleNotification(
+          id: int.parse(parking.id), // Convert parking id to int
+          title: "Parkeringstid snart slut",
+          content: "Din parkering slutar om 10 minuter.",
+          deliveryTime: parking.endTime,
+        ),
+      );
 
-      // Filter active parkings
+      // Fetch updated list of active parkings.
+      final allParkings = await parkingRepository.getAllParkings();
       final activeParkings =
           allParkings.where((p) => p.endTime.isAfter(DateTime.now())).toList();
-
-      // Emit loaded state with active parkings
       emit(ActiveParkingsLoaded(parkings: activeParkings));
     } catch (e) {
-      // Emit an error state if something goes wrong
       emit(ParkingsError(message: e.toString()));
     }
   }
 
-  onUpdateParking(Emitter<ParkingState> emit, Parking parking) async {
+  Future<void> onUpdateParking(
+      Emitter<ParkingState> emit, Parking parking) async {
     try {
       await parkingRepository.updateParking(parking.id, parking);
+
+      // Cancel the old notification and schedule a new one with updated end time.
+      notificationBloc.add(CancelNotification(id: int.parse(parking.id)));
+      notificationBloc.add(
+        ScheduleNotification(
+          id: int.parse(parking.id),
+          title: "Parkeringstid uppdaterad",
+          content: "Din parkering slutar om 10 minuter.",
+          deliveryTime: parking.endTime,
+        ),
+      );
+
       add(LoadActiveParkings());
     } catch (e) {
-      // Modify error message to match the expected format
       emit(ParkingsError(
           message: 'Failed to edit parking. Details: ${e.toString()}'));
     }
   }
 
-  onDeleteParking(Emitter<ParkingState> emit, Parking parking) async {
+  Future<void> onDeleteParking(
+      Emitter<ParkingState> emit, Parking parking) async {
     try {
-      // Try to delete parking
       await parkingRepository.deleteParking(parking.id);
 
-      // Emit loading state only if the delete operation is successful
-      emit(ParkingsLoading());
+      // Cancel the scheduled notification.
+      notificationBloc.add(CancelNotification(id: int.parse(parking.id)));
 
-      // After successful deletion, fetch the updated list of parkings
+      emit(ParkingsLoading());
       final allParkings = await parkingRepository.getAllParkings();
       emit(ParkingsLoaded(parkings: allParkings));
     } catch (e) {
-      // If an error occurs, directly emit the error state without loading state
       emit(ParkingsError(
           message: 'Failed to delete parking. Details: ${e.toString()}'));
     }

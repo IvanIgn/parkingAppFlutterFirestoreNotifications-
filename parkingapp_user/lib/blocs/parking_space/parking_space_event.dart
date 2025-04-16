@@ -2,12 +2,16 @@ part of 'parking_space_bloc.dart';
 
 abstract class ParkingSpaceEvent extends Equatable {
   const ParkingSpaceEvent();
-
-  @override
-  List<Object?> get props => [];
 }
 
-class LoadParkingSpaces extends ParkingSpaceEvent {}
+class LoadParkingSpaces extends ParkingSpaceEvent {
+  final bool forceRefresh;
+
+  const LoadParkingSpaces({this.forceRefresh = false});
+
+  @override
+  List<Object?> get props => [forceRefresh];
+}
 
 class SelectParkingSpace extends ParkingSpaceEvent {
   final ParkingSpace parkingSpace;
@@ -15,43 +19,54 @@ class SelectParkingSpace extends ParkingSpaceEvent {
   const SelectParkingSpace(this.parkingSpace);
 
   @override
-  List<Object?> get props => [parkingSpace];
+  List<Object> get props => [parkingSpace];
 }
 
-class StartParking extends ParkingSpaceEvent {}
+class StartParking extends ParkingSpaceEvent {
+  final int parkingDurationInMinutes;
 
-class StopParking extends ParkingSpaceEvent {}
+  const StartParking({required this.parkingDurationInMinutes});
 
-class DeselectParkingSpace extends ParkingSpaceEvent {}
+  @override
+  List<Object> get props => [parkingDurationInMinutes];
+}
 
-// class CreateParkingSpace extends ParkingSpaceEvent {
-//   final ParkingSpace parkingSpace;
+class StopParking extends ParkingSpaceEvent {
+  @override
+  List<Object> get props => [];
+}
 
-//   CreateParkingSpace({required this.parkingSpace});
-// }
+class DeselectParkingSpace extends ParkingSpaceEvent {
+  @override
+  List<Object> get props => [];
+}
 
-// class UpdateParkingSpace extends ParkingSpaceEvent {
-//   final ParkingSpace parkingSpace;
+class ExtendParking extends ParkingSpaceEvent {
+  final int additionalMinutes;
 
-//   UpdateParkingSpace({required this.parkingSpace});
-// }
+  const ExtendParking({required this.additionalMinutes});
 
-// class DeleteParkingSpace extends ParkingSpaceEvent {
-//   final ParkingSpace parkingSpace;
+  @override
+  List<Object> get props => [additionalMinutes];
+}
 
-//   DeleteParkingSpace({required this.parkingSpace});
-// }
+class ScheduleNotification extends ParkingSpaceEvent {
+  final DateTime endTime;
 
-// class SelectParkingSpace extends ParkingSpaceEvent {
-//   final ParkingSpace parkingSpace;
+  const ScheduleNotification({required this.endTime});
 
-//   SelectParkingSpace({required this.parkingSpace});
-// }
+  @override
+  List<Object> get props => [endTime];
+}
 
-// class ClearSelectedParkingSpace extends ParkingSpaceEvent {}
+class ShowExtendTimeDialog extends ParkingSpaceEvent {
+  const ShowExtendTimeDialog();
 
-// class ToggleParkingState extends ParkingSpaceEvent {}
+  @override
+  List<Object?> get props => [];
+}
 
-// class StartParking extends ParkingSpaceEvent {}
-
-// class StopParking extends ParkingSpaceEvent {}
+class RefreshParkingSpaces extends ParkingSpaceEvent {
+  @override
+  List<Object?> get props => [];
+}

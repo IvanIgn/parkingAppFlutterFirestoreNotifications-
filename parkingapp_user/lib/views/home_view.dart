@@ -4,18 +4,20 @@ import 'parkingspace_selection_view.dart';
 import 'overview_view.dart';
 import 'settings_view.dart';
 import 'login_view.dart';
+import 'package:parkingapp_user/repository/notification_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:parkingapp_user/blocs/auth/auth_bloc.dart'; // Import RegistrationBloc
+import 'package:parkingapp_user/blocs/auth/auth_bloc.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _HomeViewState createState() => _HomeViewState();
 }
 
 class _HomeViewState extends State<HomeView> {
-  int _selectedIndex = 0; // Default selected index
+  int _selectedIndex = 0;
   late final List<Widget> _views;
 
   @override
@@ -23,9 +25,12 @@ class _HomeViewState extends State<HomeView> {
     super.initState();
     _views = [
       const VehicleManagementView(),
-      const ParkingSpaceSelectionScreen(),
+      // Retrieve NotificationRepository from context
+      ParkingSpaceSelectionView(
+        notificationRepository: context.read<NotificationRepository>(),
+      ),
       const OverviewView(),
-      const SettingsView(), // Add SettingsView as the last tab
+      const SettingsView(),
     ];
 
     // Check authentication status on initialization
@@ -40,14 +45,12 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  // Handle navigation between tabs
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
-  // Show a logout confirmation dialog
   Future<void> _showLogoutDialog() async {
     final confirmLogout = await showDialog<bool>(
       context: context,
@@ -70,6 +73,7 @@ class _HomeViewState extends State<HomeView> {
     );
 
     if (confirmLogout == true) {
+      // ignore: use_build_context_synchronously
       context.read<AuthBloc>().add(LogoutRequested());
     }
   }

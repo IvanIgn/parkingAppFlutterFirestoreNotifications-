@@ -1,0 +1,1 @@
+C:\Users\tomas\Desktop\Flutter_projects\parkingAppFlutterNotifications\parkingapp_user\build\app\intermediates\cxx\RelWithDebInfo\2v386h1y\obj\arm64-v8a

@@ -33,10 +33,7 @@ class DefaultFirebaseOptions {
           'you can reconfigure this by running the FlutterFire CLI again.',
         );
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -50,21 +47,31 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBnrh3-68p0Li4kbyVKaB9xQexW_HHe7jE',
-    appId: '1:26248141827:web:24660efd88162ce08a8236',
-    messagingSenderId: '26248141827',
-    projectId: 'parkingappflutterfirestore',
-    authDomain: 'parkingappflutterfirestore.firebaseapp.com',
-    storageBucket: 'parkingappflutterfirestore.firebasestorage.app',
-    measurementId: 'G-2ZQLQZGDMT',
+    apiKey: 'AIzaSyB8a8Pctsi9cCg__3KnNQqDnPqH0yV5RSU',
+    appId: '1:676312531060:web:2f9e5c3500e891894fd121',
+    messagingSenderId: '676312531060',
+    projectId: 'parkingappflutternotifications',
+    authDomain: 'parkingappflutternotifications.firebaseapp.com',
+    storageBucket: 'parkingappflutternotifications.firebasestorage.app',
+    measurementId: 'G-1JLQHZFWYL',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyB0kYZid1Tk1nELfxQAMf0QlekJPNtN9rQ',
-    appId: '1:26248141827:android:7dbe6339d6fad9968a8236',
-    messagingSenderId: '26248141827',
-    projectId: 'parkingappflutterfirestore',
-    storageBucket: 'parkingappflutterfirestore.firebasestorage.app',
+    apiKey: 'AIzaSyCjq6Y8RyY8AiLXYQHcvbZeKNdW5unvi9s',
+    appId: '1:676312531060:android:bc1e958fa4e7eb734fd121',
+    messagingSenderId: '676312531060',
+    projectId: 'parkingappflutternotifications',
+    storageBucket: 'parkingappflutternotifications.firebasestorage.app',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyB8a8Pctsi9cCg__3KnNQqDnPqH0yV5RSU',
+    appId: '1:676312531060:web:396309fdf9b3627c4fd121',
+    messagingSenderId: '676312531060',
+    projectId: 'parkingappflutternotifications',
+    authDomain: 'parkingappflutternotifications.firebaseapp.com',
+    storageBucket: 'parkingappflutternotifications.firebasestorage.app',
+    measurementId: 'G-TEEMV41S53',
   );
 
 }

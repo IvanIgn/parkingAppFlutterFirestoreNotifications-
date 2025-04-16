@@ -1,0 +1,2 @@
+C:/Users/tomas/Desktop/Flutter_projects/parkingAppFlutterNotifications/parkingapp_user/android/app/.cxx/RelWithDebInfo/2v386h1y/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/tomas/Desktop/Flutter_projects/parkingAppFlutterNotifications/parkingapp_user/android/app/.cxx/RelWithDebInfo/2v386h1y/arm64-v8a/CMakeFiles/rebuild_cache.dir
