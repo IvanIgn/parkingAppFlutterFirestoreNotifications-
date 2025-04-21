@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:bloc/bloc.dart';
+import 'package:parkingapp_user/main.dart';
 import 'package:shared/shared.dart';
 import 'package:firebase_repositories/firebase_repositories.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,11 +11,13 @@ import 'package:equatable/equatable.dart';
 import 'dart:async';
 import 'package:parkingapp_user/repository/notification_repository.dart';
 import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 part 'parking_space_event.dart';
 part 'parking_space_state.dart';
 
 class ParkingSpaceBloc extends Bloc<ParkingSpaceEvent, ParkingSpaceState> {
+  NotificationRepository get notificationRepository => _notificationRepo;
   static const _notificationIds = [100, 101, 102];
   final ParkingSpaceRepository _parkingSpaceRepo;
   final PersonRepository _personRepo;
@@ -88,7 +93,7 @@ class ParkingSpaceBloc extends Bloc<ParkingSpaceEvent, ParkingSpaceState> {
         add(const LoadParkingSpaces());
 
         // Notifications
-        await _handleParkingNotifications(newEndTime, true);
+        await _handleParkingNotifications(newEndTime);
       }
     } catch (e, stackTrace) {
       _handleError(emit, 'Extension Error', e, stackTrace);
@@ -192,20 +197,48 @@ class ParkingSpaceBloc extends Bloc<ParkingSpaceEvent, ParkingSpaceState> {
     Emitter<ParkingSpaceState> emit,
   ) async {
     try {
-      // Remove or comment out this line if you don't want a loading spinner:
-      // emit(ParkingSpaceLoading());
+      // Request notification permissions first
+      final notificationAllowed = await _handleNotificationPermissions();
+      if (!notificationAllowed) {
+        emit(const ParkingSpaceError(
+            'Notification permissions required to start parking'));
+        return;
+      }
 
       final prefs = await SharedPreferences.getInstance();
       final person = await _getLoggedInPerson(prefs);
       final vehicle = await _getSelectedVehicle(prefs);
       final parkingSpace = await _getSelectedParkingSpace(prefs);
-      if (parkingSpace == null) {
-        throw Exception('Ingen parkeringsplats vald');
-      }
 
-      final startTime = DateTime.now();
+      if (parkingSpace == null) {
+        emit(const ParkingSpaceError('No parking space selected'));
+        return;
+      }
+      // Use timezone-aware datetime
+
+      final startTime = tz.TZDateTime.now(tz.local);
       _calculatedEndTime =
           startTime.add(Duration(minutes: event.parkingDurationInMinutes));
+
+      debugPrint('''
+===== PARKING STARTED =====
+Local Start Time: ${startTime.toLocal()}
+Local End Time:   ${_calculatedEndTime!.toLocal()}
+Timezone:         ${tz.local.name}
+UTC Offset:       ${startTime.timeZoneOffset.inHours} hours
+=======================
+''');
+
+      // startTime = tz.TZDateTime.from(DateTime.now(), tz.local);
+      // _calculatedEndTime =
+      //     startTime.add(Duration(minutes: event.parkingDurationInMinutes));
+
+      // Validate parking duration
+      if (event.parkingDurationInMinutes < 1) {
+        emit(const ParkingSpaceError('Minimum parking duration is 1 minute'));
+        return;
+      }
+
       final parking = Parking(
         vehicle: vehicle.copyWith(owner: person),
         parkingSpace: parkingSpace,
@@ -213,19 +246,19 @@ class ParkingSpaceBloc extends Bloc<ParkingSpaceEvent, ParkingSpaceState> {
         endTime: _calculatedEndTime!,
       );
 
-      // Update parking space status.
+      // Update parking space status
       await _parkingSpaceRepo.updateParkingSpace(
         parkingSpace.id,
         parkingSpace.copyWith(isOccupied: true),
       );
 
-      // Save the parking data.
+      // Persist parking data
       await _parkingRepo.createParking(parking);
       await prefs.setBool('isParkingActive', true);
       await prefs.setString('parking', jsonEncode(parking.toJson()));
-      final parkingSpaces = await _parkingSpaceRepo.getAllParkingSpaces();
 
-      // Force a new state by including an updated timestamp.
+      // Update state
+      final parkingSpaces = await _parkingSpaceRepo.getAllParkingSpaces();
       emit(ParkingSpaceLoaded(
         parkingSpaces: parkingSpaces,
         selectedParkingSpace: parkingSpace,
@@ -234,11 +267,63 @@ class ParkingSpaceBloc extends Bloc<ParkingSpaceEvent, ParkingSpaceState> {
         updateTime: DateTime.now().millisecondsSinceEpoch,
       ));
 
-      // Start auto-stop timer and handle notifications.
+      // Schedule notifications first
+      await _handleParkingNotifications(_calculatedEndTime!);
+
+      // Start monitoring timer after notifications are scheduled
       _startAutoStopTimer();
-      await _handleParkingNotifications(_calculatedEndTime!, false);
+
+      // Show instant confirmation notification
+      await _notificationRepo.showInstantNotification(
+          'Parking started at ${startTime.hour}:${startTime.minute.toString().padLeft(2, '0')}');
+
+      debugPrint('''
+    ===== PARKING STARTED =====
+    Start Time:   $startTime
+    End Time:     $_calculatedEndTime
+    Duration:     ${event.parkingDurationInMinutes} minutes
+    Vehicle:      ${vehicle.regNumber}
+    Space:        ${parkingSpace.id}
+    ===========================
+    ''');
     } catch (e, stackTrace) {
       _handleError(emit, 'Start Error', e, stackTrace);
+    }
+  }
+
+  Future<bool> _handleNotificationPermissions() async {
+    try {
+      if (await _notificationRepo.hasPermission()) return true;
+
+      await _notificationRepo.requestPermissions();
+
+      if (await _notificationRepo.hasPermission()) return true;
+
+      if (Platform.isIOS) {
+        // Use a navigator key from your app's root
+        final context = navigatorKey.currentContext;
+        if (context != null) {
+          await showDialog(
+            // ignore: use_build_context_synchronously
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Notifications Required'),
+              content: const Text(
+                  'Please enable notifications in Settings > Notifications'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Permission check error: $e');
+      return false;
     }
   }
 
@@ -285,6 +370,17 @@ class ParkingSpaceBloc extends Bloc<ParkingSpaceEvent, ParkingSpaceState> {
 
         // Force full refresh
         add(const LoadParkingSpaces());
+
+        // Handle notifications
+        for (final id in _notificationIds) {
+          await _notificationRepo.cancelScheduledNotification(id);
+        }
+        await _notificationRepo.scheduleNotification(
+          title: "Parkeringsavslut",
+          content: "Din parkering har avslutats",
+          deliveryTime: actualEndTime,
+          id: 0,
+        );
       }
     } catch (e, stackTrace) {
       _handleError(emit, 'Stop Error', e, stackTrace);
@@ -302,30 +398,41 @@ class ParkingSpaceBloc extends Bloc<ParkingSpaceEvent, ParkingSpaceState> {
     }
   }
 
-  Future<void> _handleParkingNotifications(
-      DateTime endTime, bool isExtended) async {
-    for (final id in _notificationIds) {
-      await _notificationRepo.cancelScheduledNotification(id);
-    }
-
-    final notifications = [
-      _NotificationConfig(1, "1 minut kvar${isExtended ? ' (Förlängd)' : ''}"),
-      _NotificationConfig(
-          5, "5 minuter kvar${isExtended ? ' (Förlängd)' : ''}"),
-      _NotificationConfig(
-          10, "10 minuter kvar${isExtended ? ' (Förlängd)' : ''}"),
-    ];
-
-    for (final config in notifications) {
-      final notifyTime = endTime.subtract(Duration(minutes: config.minutes));
-      if (notifyTime.isAfter(DateTime.now())) {
-        await _notificationRepo.scheduleNotification(
-          title: "Parkeringspåminnelse",
-          content: config.message,
-          deliveryTime: notifyTime,
-          id: _notificationIds[notifications.indexOf(config)],
-        );
+  Future<void> _handleParkingNotifications(DateTime endTime) async {
+    try {
+      // Clear existing notifications first
+      for (final id in _notificationIds) {
+        await _notificationRepo.cancelScheduledNotification(id);
+        debugPrint('Cancelled notification $id');
       }
+
+      // Schedule new reminders with proper timezone handling
+      final reminders = [
+        _NotificationConfig(1, "1 minute remaining"),
+        _NotificationConfig(5, "5 minutes remaining"),
+        _NotificationConfig(10, "10 minutes remaining"),
+      ];
+
+      final now = DateTime.now();
+
+      for (final reminder in reminders) {
+        final notifyTime =
+            endTime.subtract(Duration(minutes: reminder.minutes));
+
+        // Only schedule if in the future and parking hasn't ended
+        if (notifyTime.isAfter(now) && endTime.isAfter(now)) {
+          await _notificationRepo.scheduleNotification(
+            title: "Parking Reminder",
+            content: reminder.message,
+            deliveryTime: notifyTime,
+            id: _notificationIds[reminders.indexOf(reminder)],
+          );
+          debugPrint(
+              '» Scheduled ${reminder.minutes}m reminder for $notifyTime');
+        }
+      }
+    } catch (e) {
+      debugPrint('Notification scheduling failed: $e');
     }
   }
 
@@ -374,11 +481,16 @@ class ParkingSpaceBloc extends Bloc<ParkingSpaceEvent, ParkingSpaceState> {
 
   void _startAutoStopTimer() {
     _parkingTimer?.cancel();
-    _parkingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _parkingTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       if (_calculatedEndTime == null ||
           DateTime.now().isAfter(_calculatedEndTime!)) {
         timer.cancel();
         add(StopParking());
+
+        // Refresh notifications when parking ends
+        if (state is ParkingSpaceLoaded) {
+          await _handleParkingNotifications(DateTime.now());
+        }
       }
     });
   }
@@ -397,3 +509,192 @@ class _NotificationConfig {
 
   _NotificationConfig(this.minutes, this.message);
 }
+
+
+
+  // Future<bool> _handleNotificationPermissions(BuildContext context) async {
+  //   try {
+  //     // First check current status
+  //     if (await _notificationRepo.hasPermission()) return true;
+
+  //     // Request if not granted
+  //     await _notificationRepo.requestPermissions();
+
+  //     // Check again after requesting
+  //     if (await _notificationRepo.hasPermission()) return true;
+
+  //     // Show guidance if permanently denied
+  //     if (Platform.isIOS) {
+  //       await showDialog(
+  //         // ignore: use_build_context_synchronously
+  //         context: context,
+  //         builder: (_) => AlertDialog(
+  //           title: const Text('Notifications Required'),
+  //           content: const Text(
+  //               'Please enable notifications in Settings > Notifications'),
+  //           actions: [
+  //             TextButton(
+  //               onPressed: () => Navigator.pop(context),
+  //               child: const Text('OK'),
+  //             ),
+  //           ],
+  //         ),
+  //       );
+  //     }
+  //     return false;
+  //   } catch (e) {
+  //     debugPrint('Permission check error: $e');
+  //     return false;
+  //   }
+  // }
+
+
+ // Future<void> _onStartParking(
+  //   StartParking event,
+  //   Emitter<ParkingSpaceState> emit,
+  // ) async {
+  //   try {
+  //     // Remove or comment out this line if you don't want a loading spinner:
+  //     // emit(ParkingSpaceLoading());
+
+  //     final prefs = await SharedPreferences.getInstance();
+  //     final person = await _getLoggedInPerson(prefs);
+  //     final vehicle = await _getSelectedVehicle(prefs);
+  //     final parkingSpace = await _getSelectedParkingSpace(prefs);
+  //     if (parkingSpace == null) {
+  //       throw Exception('Ingen parkeringsplats vald');
+  //     }
+
+  //     final startTime = DateTime.now();
+  //     _calculatedEndTime =
+  //         startTime.add(Duration(minutes: event.parkingDurationInMinutes));
+  //     final parking = Parking(
+  //       vehicle: vehicle.copyWith(owner: person),
+  //       parkingSpace: parkingSpace,
+  //       startTime: startTime,
+  //       endTime: _calculatedEndTime!,
+  //     );
+
+  //     // Update parking space status.
+  //     await _parkingSpaceRepo.updateParkingSpace(
+  //       parkingSpace.id,
+  //       parkingSpace.copyWith(isOccupied: true),
+  //     );
+
+  //     // Save the parking data.
+  //     await _parkingRepo.createParking(parking);
+  //     await prefs.setBool('isParkingActive', true);
+  //     await prefs.setString('parking', jsonEncode(parking.toJson()));
+  //     final parkingSpaces = await _parkingSpaceRepo.getAllParkingSpaces();
+
+  //     // Force a new state by including an updated timestamp.
+  //     emit(ParkingSpaceLoaded(
+  //       parkingSpaces: parkingSpaces,
+  //       selectedParkingSpace: parkingSpace,
+  //       isParkingActive: true,
+  //       endTime: _calculatedEndTime,
+  //       updateTime: DateTime.now().millisecondsSinceEpoch,
+  //     ));
+
+  //     // Start auto-stop timer and handle notifications.
+  //     _startAutoStopTimer();
+  //     // refresh notifications when time is extended
+
+  //     if (_calculatedEndTime != null) {
+  //       await _handleParkingNotifications(_calculatedEndTime!, false);
+  //       await _notificationRepo.requestPermissions();
+  //       await _notificationRepo.scheduleNotification(
+  //         title: "Parkeringspåminnelse",
+  //         content: "Din parkering har startat",
+  //         deliveryTime: startTime,
+  //         id: 0,
+  //       );
+  //     } else {
+  //       debugPrint('Calculated end time is null');
+  //       (await NotificationRepository.instance).cancelScheduledNotification(0);
+  //     }
+  //   } catch (e, stackTrace) {
+  //     _handleError(emit, 'Start Error', e, stackTrace);
+  //   }
+  // }
+
+
+    // Future<void> _onStartParking(
+  //   StartParking event,
+  //   Emitter<ParkingSpaceState> emit,
+  // ) async {
+  //   try {
+  //     // Request notification permissions first
+  //     final notificationAllowed = await _handleNotificationPermissions();
+  //     if (!notificationAllowed) {
+  //       emit(const ParkingSpaceError(
+  //           'Notification permissions required to start parking'));
+  //       return;
+  //     }
+
+  //     final prefs = await SharedPreferences.getInstance();
+  //     final person = await _getLoggedInPerson(prefs);
+  //     final vehicle = await _getSelectedVehicle(prefs);
+  //     final parkingSpace = await _getSelectedParkingSpace(prefs);
+
+  //     if (parkingSpace == null) {
+  //       emit(const ParkingSpaceError('No parking space selected'));
+  //       return;
+  //     }
+
+  //     final startTime = DateTime.now();
+  //     _calculatedEndTime =
+  //         startTime.add(Duration(minutes: event.parkingDurationInMinutes));
+
+  //     final parking = Parking(
+  //       vehicle: vehicle.copyWith(owner: person),
+  //       parkingSpace: parkingSpace,
+  //       startTime: startTime,
+  //       endTime: _calculatedEndTime!,
+  //     );
+
+  //     // Update parking space status
+  //     await _parkingSpaceRepo.updateParkingSpace(
+  //       parkingSpace.id,
+  //       parkingSpace.copyWith(isOccupied: true),
+  //     );
+
+  //     // Persist parking data
+  //     await _parkingRepo.createParking(parking);
+  //     await prefs.setBool('isParkingActive', true);
+  //     await prefs.setString('parking', jsonEncode(parking.toJson()));
+
+  //     // Update state
+  //     final parkingSpaces = await _parkingSpaceRepo.getAllParkingSpaces();
+  //     emit(ParkingSpaceLoaded(
+  //       parkingSpaces: parkingSpaces,
+  //       selectedParkingSpace: parkingSpace,
+  //       isParkingActive: true,
+  //       endTime: _calculatedEndTime,
+  //       updateTime: DateTime.now().millisecondsSinceEpoch,
+  //     ));
+
+  //     // Start monitoring and notifications
+  //     _startAutoStopTimer();
+  //     await _handleParkingNotifications(_calculatedEndTime!);
+
+  //     // Show instant confirmation notification
+  //     await _notificationRepo.showInstantNotification(
+  //         'Parking started at ${startTime.hour}:${startTime.minute.toString().padLeft(2, '0')}');
+  //   } catch (e, stackTrace) {
+  //     _handleError(emit, 'Start Error', e, stackTrace);
+  //   }
+  // }
+
+
+
+// void _startAutoStopTimer() {
+  //   _parkingTimer?.cancel();
+  //   _parkingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  //     if (_calculatedEndTime == null ||
+  //         DateTime.now().isAfter(_calculatedEndTime!)) {
+  //       timer.cancel();
+  //       add(StopParking());
+  //     }
+  //   });
+  // }

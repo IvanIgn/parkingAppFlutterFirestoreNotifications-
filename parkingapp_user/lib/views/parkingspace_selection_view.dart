@@ -1,6 +1,5 @@
 import 'package:firebase_repositories/firebase_repositories.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:parkingapp_user/repository/notification_repository.dart';
 import 'package:shared/shared.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -112,30 +111,50 @@ class _ParkingSpaceListView extends StatelessWidget {
             itemBuilder: (context, index) {
               final parkingSpace = parkingSpaces[index];
               final isSelected = selectedSpace?.id == parkingSpace.id;
-              return ListTile(
-                title: Text(
-                  'Parkeringsplats ID: ${parkingSpace.id}',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w500),
+
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  //color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                subtitle: Column(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Address: ${parkingSpace.address}'),
-                    Text('Pris per timme: ${parkingSpace.pricePerHour} SEK'),
-                  ],
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _SelectButton(
-                      isSelected: isSelected,
-                      isParkingActive: isParkingActive,
-                      parkingSpace: parkingSpace,
+                    // Left side: ID and address info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Parkeringsplats ID: ${parkingSpace.id}',
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 4),
+                          Text('Address: ${parkingSpace.address}'),
+                          Text(
+                              'Pris per timme: ${parkingSpace.pricePerHour} SEK'),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 10),
-                    if (isSelected)
-                      _ToggleParkingButton(isParkingActive: isParkingActive),
+
+                    // Right side: Buttons at bottom right
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _SelectButton(
+                          isSelected: isSelected,
+                          isParkingActive: isParkingActive,
+                          parkingSpace: parkingSpace,
+                        ),
+                        const SizedBox(height: 8),
+                        if (isSelected)
+                          _ToggleParkingButton(
+                              isParkingActive: isParkingActive),
+                      ],
+                    ),
                   ],
                 ),
               );
@@ -296,152 +315,219 @@ class _ToggleParkingButton extends StatelessWidget {
             );
             return;
           }
+          // Add permission check first
+          final allowed = await _handleNotificationPermissions(context);
+          if (!allowed) return;
+
           //ignore: use_build_context_synchronously
           final parkingTime = await _showParkingTimeDialog(context);
           if (parkingTime != null) {
-            bloc.add(StartParking(parkingDurationInMinutes: parkingTime));
+            bloc.add(StartParking(parkingTime));
           }
         } else {
           bloc.add(StopParking());
-          context.read<ParkingSpaceBloc>().add(const LoadParkingSpaces());
+          //context.read<ParkingSpaceBloc>().add(const LoadParkingSpaces());
+          bloc.add(const LoadParkingSpaces());
         }
       },
       style: ElevatedButton.styleFrom(
         backgroundColor: isParkingActive ? Colors.red : Colors.orange,
       ),
-      child: Text(isParkingActive ? "Stoppa Parkering" : "Starta Parkering"),
+      child: Text(isParkingActive ? "Stoppa" : "Starta"),
     );
   }
 
-  void _showDurationDialog(BuildContext context) {
-    final controller = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+  Future<bool> _handleNotificationPermissions(BuildContext context) async {
+    // Access through the public getter
+    final bloc = context.read<ParkingSpaceBloc>();
+    final repo = bloc.notificationRepository;
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Parkeringstid'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            autofocus: true,
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Ange antal minuter';
-              final minutes = int.tryParse(value);
-              if (minutes == null || minutes < 15) return 'Minst 15 minuter';
-              return null;
-            },
-            decoration: const InputDecoration(
-              labelText: 'Antal minuter',
-              suffixText: 'minuter',
-              border: OutlineInputBorder(),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Avbryt'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                final minutes = int.parse(controller.text);
-                context.read<ParkingSpaceBloc>().add(
-                      StartParking(parkingDurationInMinutes: minutes),
-                    );
-                // Dispatch a refresh event after a short delay to allow state update.
-                Future.delayed(const Duration(milliseconds: 200), () {
-                  // ignore: use_build_context_synchronously
-                  context
-                      .read<ParkingSpaceBloc>()
-                      .add(const LoadParkingSpaces(forceRefresh: true));
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Parkering startad för $minutes minuter'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Starta'),
-          ),
-        ],
-      ),
-    );
-  }
+    if (await repo.hasPermission()) return true;
 
-  void _showExtendDialog(BuildContext context) {
-    final controller = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+    await repo.requestPermissions();
 
-    showDialog(
-      context: context,
-      builder: (context) => Form(
-        key: formKey,
-        child: AlertDialog(
-          title: const Text('Förläng Parkeringstid'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Ange antal minuter att förlänga (15-240):'),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                autofocus: true,
-                maxLength: 3,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Ange antal minuter';
-                  }
-                  final minutes = int.tryParse(value);
-                  if (minutes == null || minutes < 15 || minutes > 240) {
-                    return 'Minst 15, max 240 minuter';
-                  }
-                  return null;
-                },
-                decoration: const InputDecoration(
-                  hintText: '30',
-                  suffixText: 'minuter',
-                  border: OutlineInputBorder(),
-                  counterText: '',
-                ),
-              ),
-            ],
-          ),
+    if (!await repo.hasPermission()) {
+      if (!context.mounted) return false;
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Notifikationer Krävs'),
+          content: const Text('Aktivera notifikationer i inställningarna'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Avbryt'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (formKey.currentState?.validate() ?? false) {
-                  final minutes = int.parse(controller.text);
-                  context
-                      .read<ParkingSpaceBloc>()
-                      .add(ExtendParking(additionalMinutes: minutes));
-                  context
-                      .read<ParkingSpaceBloc>()
-                      .add(const LoadParkingSpaces());
-                  Navigator.pop(context);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[700],
-              ),
-              child:
-                  const Text('Förläng', style: TextStyle(color: Colors.white)),
+              child: const Text('OK'),
             ),
           ],
         ),
-      ),
-    );
+      );
+      return false;
+    }
+    return true;
   }
 }
+
+
+
+
+    // return ListTile(
+              //   title: Text(
+              //     'Parkeringsplats ID: ${parkingSpace.id}',
+              //     style: const TextStyle(
+              //         fontSize: 18, fontWeight: FontWeight.w500),
+              //   ),
+              //   subtitle: Column(
+              //     crossAxisAlignment: CrossAxisAlignment.start,
+              //     children: [
+              //       Text('Address: ${parkingSpace.address}'),
+              //       Text('Pris per timme: ${parkingSpace.pricePerHour} SEK'),
+              //     ],
+              //   ),
+              //   trailing: Row(
+              //     mainAxisSize: MainAxisSize.min,
+              //     children: [
+              //       _SelectButton(
+              //         isSelected: isSelected,
+              //         isParkingActive: isParkingActive,
+              //         parkingSpace: parkingSpace,
+              //       ),
+              //       const SizedBox(width: 10),
+              //       if (isSelected)
+              //         _ToggleParkingButton(isParkingActive: isParkingActive),
+              //     ],
+              //   ),
+              // );
+
+
+                // void _showExtendDialog(BuildContext context) {
+  //   final controller = TextEditingController();
+  //   final formKey = GlobalKey<FormState>();
+
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => Form(
+  //       key: formKey,
+  //       child: AlertDialog(
+  //         title: const Text('Förläng Parkeringstid'),
+  //         content: Column(
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             const Text('Ange antal minuter att förlänga (15-240):'),
+  //             const SizedBox(height: 16),
+  //             TextFormField(
+  //               controller: controller,
+  //               keyboardType: TextInputType.number,
+  //               autofocus: true,
+  //               maxLength: 3,
+  //               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+  //               validator: (value) {
+  //                 if (value == null || value.isEmpty) {
+  //                   return 'Ange antal minuter';
+  //                 }
+  //                 final minutes = int.tryParse(value);
+  //                 if (minutes == null || minutes < 15 || minutes > 240) {
+  //                   return 'Minst 15, max 240 minuter';
+  //                 }
+  //                 return null;
+  //               },
+  //               decoration: const InputDecoration(
+  //                 hintText: '30',
+  //                 suffixText: 'minuter',
+  //                 border: OutlineInputBorder(),
+  //                 counterText: '',
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //         actions: [
+  //           TextButton(
+  //             onPressed: () => Navigator.pop(context),
+  //             child: const Text('Avbryt'),
+  //           ),
+  //           ElevatedButton(
+  //             onPressed: () {
+  //               if (formKey.currentState?.validate() ?? false) {
+  //                 final minutes = int.parse(controller.text);
+  //                 context
+  //                     .read<ParkingSpaceBloc>()
+  //                     .add(ExtendParking(additionalMinutes: minutes));
+  //                 context
+  //                     .read<ParkingSpaceBloc>()
+  //                     .add(const LoadParkingSpaces());
+  //                 Navigator.pop(context);
+  //               }
+  //             },
+  //             style: ElevatedButton.styleFrom(
+  //               backgroundColor: Colors.green[700],
+  //             ),
+  //             child:
+  //                 const Text('Förläng', style: TextStyle(color: Colors.white)),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+
+
+    // void _showDurationDialog(BuildContext context) {
+  //   final controller = TextEditingController();
+  //   final formKey = GlobalKey<FormState>();
+
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: const Text('Parkeringstid'),
+  //       content: Form(
+  //         key: formKey,
+  //         child: TextFormField(
+  //           controller: controller,
+  //           keyboardType: TextInputType.number,
+  //           autofocus: true,
+  //           validator: (value) {
+  //             if (value == null || value.isEmpty) return 'Ange antal minuter';
+  //             final minutes = int.tryParse(value);
+  //             if (minutes == null || minutes < 15) return 'Minst 15 minuter';
+  //             return null;
+  //           },
+  //           decoration: const InputDecoration(
+  //             labelText: 'Antal minuter',
+  //             suffixText: 'minuter',
+  //             border: OutlineInputBorder(),
+  //           ),
+  //         ),
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: const Text('Avbryt'),
+  //         ),
+  //         ElevatedButton(
+  //           onPressed: () {
+  //             if (formKey.currentState?.validate() ?? false) {
+  //               final minutes = int.parse(controller.text);
+  //               context.read<ParkingSpaceBloc>().add(
+  //                     StartParking(parkingDurationInMinutes: minutes),
+  //                   );
+  //               // Dispatch a refresh event after a short delay to allow state update.
+  //               Future.delayed(const Duration(milliseconds: 200), () {
+  //                 // ignore: use_build_context_synchronously
+  //                 context
+  //                     .read<ParkingSpaceBloc>()
+  //                     .add(const LoadParkingSpaces(forceRefresh: true));
+  //               });
+  //               ScaffoldMessenger.of(context).showSnackBar(
+  //                 SnackBar(
+  //                   content: Text('Parkering startad för $minutes minuter'),
+  //                   backgroundColor: Colors.green,
+  //                 ),
+  //               );
+  //               Navigator.pop(context);
+  //             }
+  //           },
+  //           child: const Text('Starta'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }

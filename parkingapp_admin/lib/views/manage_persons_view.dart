@@ -181,104 +181,6 @@ class _ManagePersonsViewState extends State<ManagePersonsView> {
     return querySnapshot.docs.isNotEmpty;
   }
 
-  // void _showAddPersonDialog(BuildContext context) {
-  //   final TextEditingController nameController = TextEditingController();
-  //   final TextEditingController personNumberController =
-  //       TextEditingController();
-  //   final TextEditingController emailController = TextEditingController();
-  //   final TextEditingController passwordController = TextEditingController();
-
-  //   showDialog(
-  //     context: context,
-  //     barrierDismissible: false,
-  //     builder: (BuildContext context) {
-  //       return AlertDialog(
-  //         title: const Text("Lägg till person"),
-  //         content: SingleChildScrollView(
-  //           child: Column(
-  //             mainAxisSize: MainAxisSize.min,
-  //             children: [
-  //               TextField(
-  //                 controller: nameController,
-  //                 decoration: const InputDecoration(labelText: 'Namn'),
-  //               ),
-  //               TextField(
-  //                 controller: personNumberController,
-  //                 decoration: const InputDecoration(labelText: 'Personnummer'),
-  //               ),
-  //               TextField(
-  //                 controller: emailController,
-  //                 decoration: const InputDecoration(labelText: 'Email'),
-  //               ),
-  //               TextField(
-  //                 controller: passwordController,
-  //                 decoration: const InputDecoration(labelText: 'Lösenord'),
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //         actions: [
-  //           TextButton(
-  //             onPressed: () {
-  //               Navigator.of(context).pop();
-  //             },
-  //             child: const Text("Avbryt"),
-  //           ),
-  //           ElevatedButton(
-  //             onPressed: () async {
-  //               final personNumber = personNumberController.text;
-  //               final name = nameController.text;
-  //               final email = emailController.text;
-  //               final password = passwordController.text;
-
-  //               if (await _personNumberExists(personNumber)) {
-  //                 ScaffoldMessenger.of(context).showSnackBar(
-  //                   SnackBar(
-  //                     content: Text(
-  //                         "Personen $name med detta personnummer $personNumber finns redan"),
-  //                     duration: const Duration(seconds: 1),
-  //                   ),
-  //                 );
-  //                 return;
-  //               }
-
-  //               if (await _emailExists(email)) {
-  //                 ScaffoldMessenger.of(context).showSnackBar(
-  //                   SnackBar(
-  //                     content: Text(
-  //                         "Personen $name med detta email $email finns redan"),
-  //                     duration: const Duration(seconds: 1),
-  //                   ),
-  //                 );
-  //                 return;
-  //               }
-
-  //               final newPerson = Person(
-  //                 name: name,
-  //                 personNumber: personNumber,
-  //                 email: email, // email: '',
-  //                 authId: '', // authId: '',
-  //               );
-
-  //               // ignore: use_build_context_synchronously
-  //               context.read<PersonBloc>().add(AddPersonEvent(
-  //                     name: name,
-  //                     personNum: personNumber,
-  //                     email: email,
-  //                     password:
-  //                         password, // Replace with actual password if available
-  //                   ));
-  //               // ignore: use_build_context_synchronously
-  //               Navigator.of(context).pop();
-  //             },
-  //             child: const Text("Spara"),
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
-
   void _showAddPersonDialog(BuildContext context) {
     final TextEditingController nameController = TextEditingController();
     final TextEditingController personNumberController =
@@ -535,3 +437,103 @@ class _ManagePersonsViewState extends State<ManagePersonsView> {
     );
   }
 }
+
+
+
+  // void _showAddPersonDialog(BuildContext context) {
+  //   final TextEditingController nameController = TextEditingController();
+  //   final TextEditingController personNumberController =
+  //       TextEditingController();
+  //   final TextEditingController emailController = TextEditingController();
+  //   final TextEditingController passwordController = TextEditingController();
+
+  //   showDialog(
+  //     context: context,
+  //     barrierDismissible: false,
+  //     builder: (BuildContext context) {
+  //       return AlertDialog(
+  //         title: const Text("Lägg till person"),
+  //         content: SingleChildScrollView(
+  //           child: Column(
+  //             mainAxisSize: MainAxisSize.min,
+  //             children: [
+  //               TextField(
+  //                 controller: nameController,
+  //                 decoration: const InputDecoration(labelText: 'Namn'),
+  //               ),
+  //               TextField(
+  //                 controller: personNumberController,
+  //                 decoration: const InputDecoration(labelText: 'Personnummer'),
+  //               ),
+  //               TextField(
+  //                 controller: emailController,
+  //                 decoration: const InputDecoration(labelText: 'Email'),
+  //               ),
+  //               TextField(
+  //                 controller: passwordController,
+  //                 decoration: const InputDecoration(labelText: 'Lösenord'),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //         actions: [
+  //           TextButton(
+  //             onPressed: () {
+  //               Navigator.of(context).pop();
+  //             },
+  //             child: const Text("Avbryt"),
+  //           ),
+  //           ElevatedButton(
+  //             onPressed: () async {
+  //               final personNumber = personNumberController.text;
+  //               final name = nameController.text;
+  //               final email = emailController.text;
+  //               final password = passwordController.text;
+
+  //               if (await _personNumberExists(personNumber)) {
+  //                 ScaffoldMessenger.of(context).showSnackBar(
+  //                   SnackBar(
+  //                     content: Text(
+  //                         "Personen $name med detta personnummer $personNumber finns redan"),
+  //                     duration: const Duration(seconds: 1),
+  //                   ),
+  //                 );
+  //                 return;
+  //               }
+
+  //               if (await _emailExists(email)) {
+  //                 ScaffoldMessenger.of(context).showSnackBar(
+  //                   SnackBar(
+  //                     content: Text(
+  //                         "Personen $name med detta email $email finns redan"),
+  //                     duration: const Duration(seconds: 1),
+  //                   ),
+  //                 );
+  //                 return;
+  //               }
+
+  //               final newPerson = Person(
+  //                 name: name,
+  //                 personNumber: personNumber,
+  //                 email: email, // email: '',
+  //                 authId: '', // authId: '',
+  //               );
+
+  //               // ignore: use_build_context_synchronously
+  //               context.read<PersonBloc>().add(AddPersonEvent(
+  //                     name: name,
+  //                     personNum: personNumber,
+  //                     email: email,
+  //                     password:
+  //                         password, // Replace with actual password if available
+  //                   ));
+  //               // ignore: use_build_context_synchronously
+  //               Navigator.of(context).pop();
+  //             },
+  //             child: const Text("Spara"),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }

@@ -22,10 +22,11 @@ class SelectParkingSpace extends ParkingSpaceEvent {
   List<Object> get props => [parkingSpace];
 }
 
+@immutable
 class StartParking extends ParkingSpaceEvent {
   final int parkingDurationInMinutes;
 
-  const StartParking({required this.parkingDurationInMinutes});
+  const StartParking(this.parkingDurationInMinutes);
 
   @override
   List<Object> get props => [parkingDurationInMinutes];

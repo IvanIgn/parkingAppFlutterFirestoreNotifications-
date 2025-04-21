@@ -25,6 +25,7 @@ import 'package:parkingapp_user/repository/notification_repository.dart';
 import 'package:parkingapp_user/blocs/notifications/notification_bloc.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+//final navigatorKey = GlobalKey<NavigatorState>();
 final ValueNotifier<bool> isDarkModeNotifier = ValueNotifier(false);
 
 Future<void> _configureLocalTimeZone() async {
@@ -50,8 +51,19 @@ Future<void> initializeNotifications(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize NotificationRepository before runApp
+  await _configureLocalTimeZone();
+  debugPrint('Current zone: ${tz.local.name}');
+
   final notificationRepository = await NotificationRepository.instance;
+
+  // Force timezone sync
+  if (Platform.isAndroid) {
+    final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+    debugPrint('Emulator Timezone: $timeZoneName');
+    tz.setLocalLocation(tz.getLocation(timeZoneName));
+  }
+
+  // Initialize NotificationRepository before runApp
 
   // Initialize Firebase
   try {
@@ -85,10 +97,13 @@ Future<void> main() async {
 
   runApp(
     // Wrap your app in a RepositoryProvider for NotificationRepository
+
     RepositoryProvider<NotificationRepository>.value(
       value: notificationRepository,
       child: ParkingApp(
-          prefs: prefs, notificationRepository: notificationRepository),
+          // navigatorKey: navigatorKey, // Remove this line as the parameter is not used in the ParkingApp class
+          prefs: prefs,
+          notificationRepository: notificationRepository),
     ),
   );
 }
@@ -101,6 +116,7 @@ class ParkingApp extends StatelessWidget {
     super.key,
     required this.prefs,
     required this.notificationRepository,
+    // Remove this line as the parameter is not used in the ParkingApp class
   });
 
   @override
@@ -170,19 +186,25 @@ class MaterialAppWidget extends StatelessWidget {
           themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
           home: BlocBuilder<AuthBloc, AuthState>(
             builder: (context, authState) {
+              // 1) Authenticated → Home
               if (authState is AuthAuthenticated) {
                 return const HomeView();
-              } else if (authState is AuthLoggedOut) {
-                return LoginView(
-                  onLoginSuccess: () {
-                    BlocProvider.of<AuthBloc>(context).add(CheckAuthStatus());
-                  },
-                );
-              } else if (authState is AuthLoading) {
-                return const Center(child: CircularProgressIndicator());
-              } else {
-                return const Center(child: Text('Unexpected state'));
               }
+
+              // 2) Loading → full-screen spinner
+              if (authState is AuthLoading) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              }
+
+              // 3) All other states (LoggedOut / Error / Initial) → Login
+              return LoginView(
+                onLoginSuccess: () {
+                  // once user has logged in, re‐check and rebuild
+                  context.read<AuthBloc>().add(CheckAuthStatus());
+                },
+              );
             },
           ),
         );
@@ -190,6 +212,45 @@ class MaterialAppWidget extends StatelessWidget {
     );
   }
 }
+// class MaterialAppWidget extends StatelessWidget {
+//   const MaterialAppWidget({super.key});
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return ValueListenableBuilder<bool>(
+//       valueListenable: isDarkModeNotifier,
+//       builder: (context, isDarkMode, _) {
+//         return MaterialApp(
+//           debugShowCheckedModeBanner: false,
+//           title: 'ParkeringsApp',
+//           theme: ThemeData(
+//             primarySwatch: Colors.blue,
+//             brightness: Brightness.light,
+//           ),
+//           darkTheme: ThemeData(brightness: Brightness.dark),
+//           themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+//           home: BlocBuilder<AuthBloc, AuthState>(
+//             builder: (context, authState) {
+//               if (authState is AuthAuthenticated) {
+//                 return const HomeView();
+//               } else if (authState is AuthLoggedOut) {
+//                 return LoginView(
+//                   onLoginSuccess: () {
+//                     BlocProvider.of<AuthBloc>(context).add(CheckAuthStatus());
+//                   },
+//                 );
+//               } else if (authState is AuthLoading) {
+//                 return const Center(child: CircularProgressIndicator());
+//               } else {
+//                 return const Center(child: Text('Unexpected state'));
+//               }
+//             },
+//           ),
+//         );
+//       },
+//     );
+//   }
+// }
 
 void clearPrefs() async {
   final prefs = await SharedPreferences.getInstance();

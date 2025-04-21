@@ -7,7 +7,9 @@ abstract class AuthState extends Equatable {
   List<Object?> get props => [];
 }
 
-class AuthInitial extends AuthState {}
+class AuthInitial extends AuthState {
+  const AuthInitial();
+}
 
 class AuthLoading extends AuthState {}
 
@@ -27,7 +29,7 @@ class AuthLoggedIn extends AuthState {
       required this.password});
 
   @override
-  List<Object?> get props => [
+  List<Object> get props => [
         name,
         /*personNumber*/
         email,
@@ -49,7 +51,7 @@ class AuthAuthenticated extends AuthState {
       required this.password});
 
   @override
-  List<Object?> get props => [name, personNumber, email, password];
+  List<Object> get props => [name, personNumber, email, password];
 }
 
 class AuthLoggedOut extends AuthState {}
@@ -60,5 +62,11 @@ class AuthError extends AuthState {
   const AuthError({required this.errorMessage});
 
   @override
-  List<Object?> get props => [errorMessage];
+  List<Object> get props => [errorMessage];
+}
+
+class AuthNotAuthenticated extends AuthState {
+  final String? message;
+
+  const AuthNotAuthenticated({this.message});
 }

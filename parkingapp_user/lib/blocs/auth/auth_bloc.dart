@@ -17,6 +17,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LoginRequested>(_onLoginRequested);
     on<LogoutRequested>(_onLogoutRequested);
     on<CheckAuthStatus>(_onCheckAuthStatus);
+    on<AuthReset>((_, emit) => emit(AuthLoggedOut()));
+  }
+
+  @override
+  void onEvent(AuthEvent event) {
+    super.onEvent(event);
+    if (event is LoginRequested) {
+      // Сбросить ошибки перед новым запросом
+      if (state is AuthError) {
+        add(LogoutRequested());
+      }
+    }
   }
 
   Future<void> _onCheckAuthStatus(
@@ -72,74 +84,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  // Future<void> _onLoginRequested(
-  //     LoginRequested event, Emitter<AuthState> emit) async {
-  //   emit(AuthLoading());
-
-  //   try {
-  //     UserCredential userCredential = await authRepository.login(
-  //         email: event.email, password: event.password);
-
-  //     User? firebaseUser = userCredential.user;
-  //     if (firebaseUser == null) {
-  //       emit(AuthError(
-  //           errorMessage: "Inloggningsfel. Användare hittades inte."));
-  //       return;
-  //     }
-
-  //     final userDoc = await FirebaseFirestore.instance
-  //         .collection('persons')
-  //         .doc(firebaseUser.uid)
-  //         .get();
-
-  //     if (!userDoc.exists || userDoc.data() == null) {
-  //       emit(AuthError(errorMessage: "Inga användare hittades i databasen."));
-  //       return;
-  //     }
-
-  //     final emailQuery = await FirebaseFirestore.instance
-  //         .collection('persons')
-  //         .where('email', isEqualTo: event.email)
-  //         .limit(1)
-  //         .get();
-
-  //     if (emailQuery.docs.isEmpty) {
-  //       emit(AuthError(
-  //           errorMessage: "Personen med detta Email är inte registrerad."));
-  //       return;
-  //     }
-
-  //     final userData = userDoc.data() ?? {};
-  //     String name = userData['name'] ?? 'Okänd användare';
-  //     String email = firebaseUser.email ?? '';
-  //     String personNumber = userData['personNumber'] ?? '';
-
-  //     print("✅ LOGIN SUCCESS: $email ($name)");
-
-  //     // Save logged-in user data to SharedPreferences
-  //     final loggedInPerson = {
-  //       'name': name,
-  //       'personNumber': personNumber,
-  //       'email': email,
-  //       'authId': firebaseUser.uid,
-  //       'id': firebaseUser.uid,
-  //       // Ensure authId is set
-  //     };
-
-  //     final prefs = await SharedPreferences.getInstance();
-  //     await prefs.setString('loggedInPerson', json.encode(loggedInPerson));
-
-  //     emit(AuthAuthenticated(
-  //       name: name,
-  //       email: email,
-  //       password: '',
-  //       personNumber: personNumber,
-  //     ));
-  //   } catch (e) {
-  //     emit(AuthError(errorMessage: 'Inloggning misslyckades: $e'));
-  //   }
-  // }
-
   Future<void> _onLoginRequested(
       LoginRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
@@ -153,6 +97,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           .get();
 
       if (emailQuery.docs.isEmpty) {
+        emit(AuthLoggedOut());
         emit(const AuthError(
             errorMessage: "❌ Personen med detta email är inte registrerad."));
         return;
@@ -231,3 +176,75 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 }
+
+
+
+
+
+  // Future<void> _onLoginRequested(
+  //     LoginRequested event, Emitter<AuthState> emit) async {
+  //   emit(AuthLoading());
+
+  //   try {
+  //     UserCredential userCredential = await authRepository.login(
+  //         email: event.email, password: event.password);
+
+  //     User? firebaseUser = userCredential.user;
+  //     if (firebaseUser == null) {
+  //       emit(AuthError(
+  //           errorMessage: "Inloggningsfel. Användare hittades inte."));
+  //       return;
+  //     }
+
+  //     final userDoc = await FirebaseFirestore.instance
+  //         .collection('persons')
+  //         .doc(firebaseUser.uid)
+  //         .get();
+
+  //     if (!userDoc.exists || userDoc.data() == null) {
+  //       emit(AuthError(errorMessage: "Inga användare hittades i databasen."));
+  //       return;
+  //     }
+
+  //     final emailQuery = await FirebaseFirestore.instance
+  //         .collection('persons')
+  //         .where('email', isEqualTo: event.email)
+  //         .limit(1)
+  //         .get();
+
+  //     if (emailQuery.docs.isEmpty) {
+  //       emit(AuthError(
+  //           errorMessage: "Personen med detta Email är inte registrerad."));
+  //       return;
+  //     }
+
+  //     final userData = userDoc.data() ?? {};
+  //     String name = userData['name'] ?? 'Okänd användare';
+  //     String email = firebaseUser.email ?? '';
+  //     String personNumber = userData['personNumber'] ?? '';
+
+  //     print("✅ LOGIN SUCCESS: $email ($name)");
+
+  //     // Save logged-in user data to SharedPreferences
+  //     final loggedInPerson = {
+  //       'name': name,
+  //       'personNumber': personNumber,
+  //       'email': email,
+  //       'authId': firebaseUser.uid,
+  //       'id': firebaseUser.uid,
+  //       // Ensure authId is set
+  //     };
+
+  //     final prefs = await SharedPreferences.getInstance();
+  //     await prefs.setString('loggedInPerson', json.encode(loggedInPerson));
+
+  //     emit(AuthAuthenticated(
+  //       name: name,
+  //       email: email,
+  //       password: '',
+  //       personNumber: personNumber,
+  //     ));
+  //   } catch (e) {
+  //     emit(AuthError(errorMessage: 'Inloggning misslyckades: $e'));
+  //   }
+  // }
