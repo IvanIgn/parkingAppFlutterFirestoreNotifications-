@@ -46,18 +46,6 @@ class _OverviewViewState extends State<OverviewView> {
     }
   }
 
-// // want to load parking data by user id using bloc
-//   Future<void> _loadParkingData() async {
-//     if (loggedInPersonAuthId != null) {
-//       context.read<ParkingBloc>().add(LoadParkingByPersonEmail(
-//           //onLoadActiveParkings
-//           parkingInstance!,
-//           loggedInPersonEmail ?? ''));
-//     } else {
-//       debugPrint('❌ loggedInPersonAuthEmail is null $loggedInPersonAuthId');
-//     }
-//   }
-
   Future<void> _loadParkingData() async {
     context.read<ParkingBloc>().add(LoadActiveParkings());
   }

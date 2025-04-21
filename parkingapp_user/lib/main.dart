@@ -212,45 +212,6 @@ class MaterialAppWidget extends StatelessWidget {
     );
   }
 }
-// class MaterialAppWidget extends StatelessWidget {
-//   const MaterialAppWidget({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return ValueListenableBuilder<bool>(
-//       valueListenable: isDarkModeNotifier,
-//       builder: (context, isDarkMode, _) {
-//         return MaterialApp(
-//           debugShowCheckedModeBanner: false,
-//           title: 'ParkeringsApp',
-//           theme: ThemeData(
-//             primarySwatch: Colors.blue,
-//             brightness: Brightness.light,
-//           ),
-//           darkTheme: ThemeData(brightness: Brightness.dark),
-//           themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-//           home: BlocBuilder<AuthBloc, AuthState>(
-//             builder: (context, authState) {
-//               if (authState is AuthAuthenticated) {
-//                 return const HomeView();
-//               } else if (authState is AuthLoggedOut) {
-//                 return LoginView(
-//                   onLoginSuccess: () {
-//                     BlocProvider.of<AuthBloc>(context).add(CheckAuthStatus());
-//                   },
-//                 );
-//               } else if (authState is AuthLoading) {
-//                 return const Center(child: CircularProgressIndicator());
-//               } else {
-//                 return const Center(child: Text('Unexpected state'));
-//               }
-//             },
-//           ),
-//         );
-//       },
-//     );
-//   }
-// }
 
 void clearPrefs() async {
   final prefs = await SharedPreferences.getInstance();
